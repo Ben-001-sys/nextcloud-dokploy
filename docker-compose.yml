@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: nextcloud:35-apache
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set_ADMIN_PASSWORD}
+
+      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_DOMAIN:?Set_NEXTCLOUD_DOMAIN}
+      OVERWRITEHOST: ${NEXTCLOUD_DOMAIN:?Set_NEXTCLOUD_DOMAIN}
+      OVERWRITEPROTOCOL: https
+      OVERWRITECLIURL: https://${NEXTCLOUD_DOMAIN:?Set_NEXTCLOUD_DOMAIN}
+
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 2G
+      APACHE_BODY_LIMIT: 2147483648
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  cron:
+    image: nextcloud:35-apache
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      - app
+      - db
+      - redis
+
+volumes:
+  postgres_data:
+  nextcloud_data:

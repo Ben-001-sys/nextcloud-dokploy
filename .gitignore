@@ -1,0 +1,14 @@
+# Secrets and environment-specific configuration
+.env
+.env.*
+!.env.example
+
+# Local/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Database dumps and backups (do not commit private instance data)
+*.sql
+*.dump
+backups/
